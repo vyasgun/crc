@@ -5,8 +5,6 @@ package vfkit
 
 import (
 	"fmt"
-
-	"github.com/crc-org/crc/v2/pkg/crc/constants"
 )
 
 const (
@@ -20,5 +18,5 @@ var (
 )
 
 func ExecutablePath() string {
-	return constants.ResolveHelperPath(vfkitCommand)
+	return "/opt/homebrew/bin/krunkit"
 }
