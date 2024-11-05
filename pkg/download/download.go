@@ -21,46 +21,50 @@ import (
 	"github.com/pkg/errors"
 )
 
-func doRequest(client *grab.Client, req *grab.Request) (string, error) {
+func doRequest(client *grab.Client, req *grab.Request) (*grab.Response, error) {
 	const minSizeForProgressBar = 100_000_000
 
 	resp := client.Do(req)
 	if resp.Size() < minSizeForProgressBar {
 		<-resp.Done
-		return resp.Filename, resp.Err()
+		return resp, resp.Err()
 	}
 
-	t := time.NewTicker(500 * time.Millisecond)
-	defer t.Stop()
-	var bar *pb.ProgressBar
-	if terminal.IsShowTerminalOutput() {
-		bar = pb.Start64(resp.Size())
-		bar.Set(pb.Bytes, true)
-		// This is the same as the 'Default' template https://github.com/cheggaaa/pb/blob/224e0746e1e7b9c5309d6e2637264bfeb746d043/v3/preset.go#L8-L10
-		// except that the 'per second' suffix is changed to '/s' (by default it is ' p/s' which is unexpected)
-		progressBarTemplate := `{{with string . "prefix"}}{{.}} {{end}}{{counters . }} {{bar . }} {{percent . }} {{speed . "%s/s" "??/s"}}{{with string . "suffix"}} {{.}}{{end}}`
-		bar.SetTemplateString(progressBarTemplate)
-		defer bar.Finish()
-	}
-
-loop:
-	for {
-		select {
-		case <-t.C:
-			if terminal.IsShowTerminalOutput() {
-				bar.SetCurrent(resp.BytesComplete())
-			}
-		case <-resp.Done:
-			break loop
+	go func() {
+		t := time.NewTicker(time.Millisecond)
+		defer t.Stop()
+		var bar *pb.ProgressBar
+		if terminal.IsShowTerminalOutput() {
+			bar = pb.Start64(resp.Size())
+			bar.Set(pb.Bytes, true)
+			// This is the same as the 'Default' template https://github.com/cheggaaa/pb/blob/224e0746e1e7b9c5309d6e2637264bfeb746d043/v3/preset.go#L8-L10
+			// except that the 'per second' suffix is changed to '/s' (by default it is ' p/s' which is unexpected)
+			progressBarTemplate := `{{with string . "prefix"}}{{.}} {{end}}{{counters . }} {{bar . }} {{percent . }} {{speed . "%s/s" "??/s"}}{{with string . "suffix"}} {{.}}{{end}}`
+			bar.SetTemplateString(progressBarTemplate)
+			defer bar.Finish()
 		}
-	}
 
-	return resp.Filename, resp.Err()
+	loop:
+		for {
+			select {
+			case <-t.C:
+				if terminal.IsShowTerminalOutput() {
+					bar.SetCurrent(resp.BytesComplete())
+				}
+			case <-resp.Done:
+				break loop
+
+			}
+		}
+		return
+	}()
+
+	return resp, resp.Err()
 }
 
 // Download function takes sha256sum as hex decoded byte
 // something like hex.DecodeString("33daf4c03f86120fdfdc66bddf6bfff4661c7ca11c5d")
-func Download(uri, destination string, mode os.FileMode, sha256sum []byte) (string, error) {
+func Download(uri, destination string, mode os.FileMode, sha256sum []byte) (io.Reader, error) {
 	logging.Debugf("Downloading %s to %s", uri, destination)
 
 	client := grab.NewClient()
@@ -68,24 +72,27 @@ func Download(uri, destination string, mode os.FileMode, sha256sum []byte) (stri
 	client.HTTPClient = &http.Client{Transport: httpproxy.HTTPTransport()}
 	req, err := grab.NewRequest(destination, uri)
 	if err != nil {
-		return "", errors.Wrapf(err, "unable to get request from %s", uri)
+		return nil, errors.Wrapf(err, "unable to get request from %s", uri)
 	}
 	if sha256sum != nil {
 		req.SetChecksum(sha256.New(), sha256sum, true)
 	}
 
-	filename, err := doRequest(client, req)
+	resp, err := doRequest(client, req)
+
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
+	filename := resp.Filename
 	if err := os.Chmod(filename, mode); err != nil {
 		_ = os.Remove(filename)
-		return "", err
+		return nil, err
 	}
 
 	logging.Debugf("Download saved to %v", filename)
-	return filename, nil
+	reader := resp.HTTPResponse.Body
+	return reader, nil
 }
 
 // InMemory takes a URL and returns a ReadCloser object to the downloaded file
@@ -131,10 +138,10 @@ func NewRemoteFile(uri, sha256sum string) *RemoteFile {
 
 }
 
-func (r *RemoteFile) Download(bundlePath string, mode os.FileMode) (string, error) {
+func (r *RemoteFile) Download(bundlePath string, mode os.FileMode) (io.Reader, error) {
 	sha256, err := hex.DecodeString(r.sha256sum)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	return Download(r.URI, bundlePath, mode, sha256)
 }

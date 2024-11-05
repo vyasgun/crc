@@ -5,6 +5,7 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"fmt"
+	"github.com/crc-org/crc/v2/pkg/extract"
 	"math/rand"
 	"os"
 	"strconv"
@@ -49,14 +50,16 @@ func getCrcBundleInfo(preset crcPreset.Preset, bundleName, bundlePath string, en
 	}
 	logging.Debugf("Failed to load bundle %s: %v", bundleName, err)
 	logging.Infof("Downloading bundle: %s...", bundleName)
-	bundlePath, err = bundle.Download(preset, bundlePath, enableBundleQuayFallback)
+	reader, err := bundle.Download(preset, bundlePath, enableBundleQuayFallback)
 	if err != nil {
 		return nil, err
 	}
 	logging.Infof("Extracting bundle: %s...", bundleName)
-	if _, err := bundle.Extract(bundlePath); err != nil {
+	files, err := extract.Untar(reader, constants.MachineCacheDir, nil, true)
+	if err != nil {
 		return nil, err
 	}
+	fmt.Println("DBG", files)
 	return bundle.Use(bundleName)
 }
 

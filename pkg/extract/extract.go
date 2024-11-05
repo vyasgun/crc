@@ -62,24 +62,24 @@ func uncompress(tarball, targetDir string, fileFilter func(string) bool, showPro
 		if err != nil {
 			return nil, err
 		}
-		return untar(reader, targetDir, fileFilter, showProgress)
+		return Untar(reader, targetDir, fileFilter, showProgress)
 	case filetype.Is(header, "zst"):
 		reader, err := zstd.NewReader(file)
 		if err != nil {
 			return nil, err
 		}
-		return untar(reader, targetDir, fileFilter, showProgress)
+		return Untar(reader, targetDir, fileFilter, showProgress)
 	case filetype.Is(header, "gz"):
 		reader, err := gzip.NewReader(file)
 		if err != nil {
 			return nil, err
 		}
 		defer reader.Close()
-		return untar(io.Reader(reader), targetDir, fileFilter, showProgress)
+		return Untar(io.Reader(reader), targetDir, fileFilter, showProgress)
 	case filetype.Is(header, "zip"):
 		return unzip(tarball, targetDir, fileFilter, showProgress)
 	case filetype.Is(header, "tar"):
-		return untar(file, targetDir, fileFilter, showProgress)
+		return Untar(file, targetDir, fileFilter, showProgress)
 	default:
 		return nil, fmt.Errorf("Unknown file format when trying to uncompress %s", tarball)
 	}
@@ -92,7 +92,7 @@ func min(a int64, b int64) int64 {
 	return b
 }
 
-func untar(reader io.Reader, targetDir string, fileFilter func(string) bool, showProgress bool) ([]string, error) {
+func Untar(reader io.Reader, targetDir string, fileFilter func(string) bool, showProgress bool) ([]string, error) {
 	var extractedFiles []string
 	tarReader := tar.NewReader(reader)
 
@@ -119,7 +119,7 @@ func untar(reader io.Reader, targetDir string, fileFilter func(string) bool, sho
 		}
 
 		if fileFilter != nil && !fileFilter(path) {
-			logging.Debugf("untar: Skipping %s", path)
+			logging.Debugf("Untar: Skipping %s", path)
 			continue
 		}
 
@@ -194,7 +194,7 @@ func unzip(archive, target string, fileFilter func(string) bool, showProgress bo
 		}
 
 		if fileFilter != nil && !fileFilter(path) {
-			logging.Debugf("untar: Skipping %s", path)
+			logging.Debugf("Untar: Skipping %s", path)
 			continue
 		}
 		if file.FileInfo().IsDir() {

@@ -337,16 +337,16 @@ func getVerifiedHash(url string, file string) (string, error) {
 	return "", fmt.Errorf("%s hash is missing or shasums are malformed", file)
 }
 
-func downloadDefault(preset crcPreset.Preset) (string, error) {
+func downloadDefault(preset crcPreset.Preset) (io.Reader, error) {
 	downloadInfo, err := getBundleDownloadInfo(preset)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	return downloadInfo.Download(constants.GetDefaultBundlePath(preset), 0664)
 }
 
-func Download(preset crcPreset.Preset, bundleURI string, enableBundleQuayFallback bool) (string, error) {
+func Download(preset crcPreset.Preset, bundleURI string, enableBundleQuayFallback bool) (io.Reader, error) {
 	// If we are asked to download
 	// ~/.crc/cache/crc_podman_libvirt_4.1.1.crcbundle, this means we want
 	// are downloading the default bundle for this release. This uses a
@@ -358,23 +358,23 @@ func Download(preset crcPreset.Preset, bundleURI string, enableBundleQuayFallbac
 			downloadedBundlePath, err := downloadDefault(preset)
 			if err != nil && enableBundleQuayFallback {
 				logging.Info("Unable to download bundle from mirror, falling back to quay")
-				return image.PullBundle(constants.GetDefaultBundleImageRegistry(preset))
+				//return image.PullBundle(constants.GetDefaultBundleImageRegistry(preset))
 			}
 			return downloadedBundlePath, err
 		case crcPreset.OKD:
 			fallthrough
 		default:
-			return image.PullBundle(constants.GetDefaultBundleImageRegistry(preset))
+			//return image.PullBundle(constants.GetDefaultBundleImageRegistry(preset))
 		}
 	}
 	switch {
 	case strings.HasPrefix(bundleURI, "http://"), strings.HasPrefix(bundleURI, "https://"):
 		return download.Download(bundleURI, constants.MachineCacheDir, 0644, nil)
 	case strings.HasPrefix(bundleURI, "docker://"):
-		return image.PullBundle(bundleURI)
+		//return image.PullBundle(bundleURI)
 	}
 	// the `bundleURI` parameter turned out to be a local path
-	return bundleURI, nil
+	return nil, fmt.Errorf("DBG ignore")
 }
 
 type Version struct {

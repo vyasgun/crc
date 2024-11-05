@@ -10,7 +10,6 @@ import (
 	crcErrors "github.com/crc-org/crc/v2/pkg/crc/errors"
 	"github.com/crc-org/crc/v2/pkg/crc/input"
 	"github.com/crc-org/crc/v2/pkg/crc/preflight"
-	"github.com/crc-org/crc/v2/pkg/crc/validation"
 	crcTerminal "github.com/crc-org/crc/v2/pkg/os/terminal"
 
 	"github.com/spf13/cobra"
@@ -60,9 +59,9 @@ func runSetup(_ []string) error {
 		}
 	}
 
-	if err := validation.ValidateBundle(config.Get(crcConfig.Bundle).AsString(), crcConfig.GetPreset(config)); err != nil {
-		return err
-	}
+	//if err := validation.ValidateBundle(config.Get(crcConfig.Bundle).AsString(), crcConfig.GetPreset(config)); err != nil {
+	//	return err
+	//}
 
 	// set global variable to force terminal output
 	crcTerminal.ForceShowOutput = forceShowProgressbars

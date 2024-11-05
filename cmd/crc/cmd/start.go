@@ -59,13 +59,13 @@ var startCmd = &cobra.Command{
 }
 
 func runStart(ctx context.Context) (*types.StartResult, error) {
-	if err := validateStartFlags(); err != nil {
-		return nil, err
-	}
+	//if err := validateStartFlags(); err != nil {
+	//	return nil, err
+	//}
 
-	if err := checkIfNewVersionAvailable(config.Get(crcConfig.DisableUpdateCheck).AsBool()); err != nil {
-		logging.Debugf("Unable to find out if a new version is available: %v", err)
-	}
+	//if err := checkIfNewVersionAvailable(config.Get(crcConfig.DisableUpdateCheck).AsBool()); err != nil {
+	//	logging.Debugf("Unable to find out if a new version is available: %v", err)
+	//}
 
 	startConfig := types.StartConfig{
 		BundlePath:        config.Get(crcConfig.Bundle).AsString(),
