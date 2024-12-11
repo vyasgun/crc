@@ -448,7 +448,7 @@ func WaitForPullSecretPresentOnInstanceDisk(ctx context.Context, sshRunner *ssh.
 			return fmt.Errorf("failed to read %s file: %v: %s", vmPullSecretPath, err, stderr)
 		}
 		if err := validation.ImagePullSecret(stdout); err != nil {
-			return &errors.RetriableError{Err: fmt.Errorf("pull secret not updated to disk")}
+			return &errors.RetriableError{Err: fmt.Errorf("pull secret not updated to disk due to error: %v", err)}
 		}
 		return nil
 	}
