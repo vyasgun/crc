@@ -22,7 +22,7 @@ import (
 	"math"
 	"os"
 	"os/exec"
-	"strconv"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -33,6 +33,7 @@ import (
 	"github.com/crc-org/machine/libmachine/drivers"
 	"github.com/crc-org/machine/libmachine/state"
 	"github.com/crc-org/vfkit/pkg/config"
+	vfprocess "github.com/crc-org/vfkit/pkg/process"
 	"github.com/pkg/errors"
 	"github.com/shirou/gopsutil/v4/process"
 	log "github.com/sirupsen/logrus"
@@ -275,11 +276,17 @@ func (d *Driver) Start() error {
 		return err
 	}
 	process, err := startVfkit(d.VfkitPath, args)
+
 	if err != nil {
 		return err
 	}
 
-	_ = os.WriteFile(d.getPidFilePath(), []byte(strconv.Itoa(process.Pid)), 0600)
+	vfProcess, err := vfprocess.New(filepath.Base(d.VfkitPath), d.getPidFilePath(), d.VfkitPath)
+	if err != nil {
+		return err
+	}
+
+	err = vfProcess.WritePidFile(process.Pid)
 
 	if !d.VirtioNet {
 		return nil
@@ -401,57 +408,14 @@ func (d *Driver) getPidFilePath() string {
  * - if a process was found, but its name is not 'vfkit'
  */
 func (d *Driver) findVfkitProcess() (*process.Process, error) {
-	pidFile := d.getPidFilePath()
-	pid, err := readPidFromFile(pidFile)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return nil, nil
-		}
-		return nil, errors.Wrapf(err, "error reading pidfile %s", pidFile)
-	}
-
-	exists, err := process.PidExists(pid)
+	proc, err := vfprocess.New(filepath.Base(d.VfkitPath), d.getPidFilePath(), d.VfkitPath)
 	if err != nil {
 		return nil, err
 	}
-	if !exists {
+	if !proc.Exists() {
 		return nil, nil
 	}
-	p, err := process.NewProcess(pid)
-	if err != nil {
-		return nil, errors.Wrap(err, fmt.Sprintf("cannot find pid %d", pid))
-	}
-	if p == nil {
-		log.Debugf("vfkit pid %d missing from process table", pid)
-		// return PidNotExist error?
-		return nil, nil
-	}
-
-	name, err := p.Name()
-	if err != nil {
-		return nil, err
-	}
-	if !strings.HasPrefix(name, "vfkit") {
-		// return InvalidExecutable error?
-		log.Debugf("pid %d is stale, and is being used by %s", pid, name)
-		return nil, nil
-	}
-
-	return p, nil
-}
-
-func readPidFromFile(filename string) (int32, error) {
-	bs, err := os.ReadFile(filename)
-	if err != nil {
-		return 0, err
-	}
-	content := strings.TrimSpace(string(bs))
-	pid, err := strconv.ParseInt(content, 10, 32)
-	if err != nil {
-		return 0, errors.Wrapf(err, "parsing %s", filename)
-	}
-
-	return int32(pid), nil
+	return proc.FindProcess()
 }
 
 // recoverFromUncleanShutdown searches for an existing vfkit.pid file in
